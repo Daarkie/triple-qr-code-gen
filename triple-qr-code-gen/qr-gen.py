@@ -208,14 +208,17 @@ def add_timing_patterns(matrix):
 def add_format_information(matrix, error_correction_level, mask_pattern):
     pass
 
+
 def mask_fixed_patterns(matrix):
     size = len(matrix)
 
-    for i in range(4, 12):
-        for j in range(4, 12):
+    # finder patterns + format info
+    for i in range(4, 13):
+        for j in range(4, 13):
             matrix[i][j] = 1
-            matrix[size - i][j] = 1
-            matrix[i][size - j] = 1
+            if j < 12:
+                matrix[size - j][i] = 1
+                matrix[i][size - j] = 1
 
     # timing patterns
     for i in range(12, size - 12):
@@ -227,6 +230,7 @@ def mask_fixed_patterns(matrix):
         for j in range(size - 13, size - 8):
             matrix[i][j] = 1
 
+
 def add_fixed_patterns(matrix):
     add_finder_patterns(matrix)
     add_alignment_patterns(matrix)
@@ -236,13 +240,21 @@ def add_fixed_patterns(matrix):
 
 def add_data_patterns(matrix, qr):
     size = len(matrix)
+    data = qr.encoded
 
     y = size - 5
     direction_up = True
 
-
     for x in range(size - 5, 3, -2):
         if x <= 10:
+            pass
+        if direction_up:
+            start = size - 5
+            end = 3
+        else:
+            start = 4
+            end = size - 4
+        for y in range(start, end):
             pass
 
 
@@ -253,7 +265,6 @@ def make_2d_array(qr):
     mask_fixed_patterns(qr_matrix)
     add_data_patterns(qr_matrix, qr)
     add_fixed_patterns(qr_matrix)
-
 
 
 def fill_qr(qr):
