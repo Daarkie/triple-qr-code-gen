@@ -1,3 +1,4 @@
+from docutils.utils.roman import OutOfRangeError
 from reedsolo import RSCodec
 
 
@@ -9,7 +10,7 @@ class QR:
         self.ec = 'L'
         self.encoded = "0010"
 
-    def set_level(self, level):
+    def set_level_and_fill(self, level):
         self.level = level
         fill_qr(self)
 
@@ -71,7 +72,7 @@ def get_capacity_value(data_size, level=0):
         for i in range(2, 10):
             if capacity_table[i]['L'] >= data_size:
                 return i
-        raise ValueError(f"Size of data '{data_size}' not supported")
+        raise OutOfRangeError(f"Size of data '{data_size}' not supported")
     else:
         if capacity_table[level]['H'] >= data_size:
             return 'H'
@@ -152,8 +153,107 @@ def make_codewords(qr):
             qr.encoded.append(bit)
 
 
-def combine(qr0, qr1):
+def add_finder_patterns(matrix):
+    size = len(matrix)
+    # top-left finder pattern
+    for i in range(4, 12):
+        for j in range(4, 12):
+            if (i == 4 or i == 10 or j == 4 or j == 10 or
+                    (6 <= i <= 8 and 6 <= j <= 8)):
+                matrix[i][j] = 1
+            else:
+                matrix[i][j] = 0
+
+    # top-right finder pattern
+    for i in range(4, 12):
+        for j in range(size - 12, size - 4):
+            if (i == 4 or i == 10 or j == size - 11 or j == size - 5 or
+                    (6 <= i <= 8 and size - 9 <= j <= size - 7)):
+                matrix[i][j] = 1
+            else:
+                matrix[i][j] = 0
+
+    # bottom-left finder pattern
+    for i in range(size - 12, size - 4):
+        for j in range(4, 12):
+            if (i == size - 11 or i == size - 5 or j == 4 or j == 10 or
+                    (size - 9 <= i <= size - 7 and 6 <= j <= 8)):
+                matrix[i][j] = 1
+            else:
+                matrix[i][j] = 0
+
+
+def add_alignment_patterns(matrix):
+    # for selected versions, there's only one alignment pattern
+    size = len(matrix)
+    pos = size - 11
+
+    # Draw 5x5 alignment pattern
+    for i in range(pos - 2, pos + 3):
+        for j in range(pos - 2, pos + 3):
+            if i == pos - 2 or i == pos + 2 or j == pos - 2 or j == pos + 2 or (i == pos and j == pos):
+                matrix[i][j] = 1
+            else:
+                matrix[i][j] = 0
+
+
+def add_timing_patterns(matrix):
+    size = len(matrix)
+    # timing patterns
+    for i in range(12, size - 12):
+        matrix[10][i] = 1 if i % 2 == 0 else 0
+        matrix[i][10] = 1 if i % 2 == 0 else 0
+
+
+def add_format_information(matrix, error_correction_level, mask_pattern):
     pass
+
+def mask_fixed_patterns(matrix):
+    size = len(matrix)
+
+    for i in range(4, 12):
+        for j in range(4, 12):
+            matrix[i][j] = 1
+            matrix[size - i][j] = 1
+            matrix[i][size - j] = 1
+
+    # timing patterns
+    for i in range(12, size - 12):
+        matrix[10][i] = 1
+        matrix[i][10] = 1
+
+    # alignment pattern
+    for i in range(size - 13, size - 8):
+        for j in range(size - 13, size - 8):
+            matrix[i][j] = 1
+
+def add_fixed_patterns(matrix):
+    add_finder_patterns(matrix)
+    add_alignment_patterns(matrix)
+    add_timing_patterns(matrix)
+    # Dark module is always present at position (4*version + 9, 8)
+
+
+def add_data_patterns(matrix, qr):
+    size = len(matrix)
+
+    y = size - 5
+    direction_up = True
+
+
+    for x in range(size - 5, 3, -2):
+        if x <= 10:
+            pass
+
+
+def make_2d_array(qr):
+    # number of modules + padding
+    modules = qr.level * 4 + 17 + 4 * 2
+    qr_matrix = [[0 for j in range(modules)] for i in range(modules)]
+    mask_fixed_patterns(qr_matrix)
+    add_data_patterns(qr_matrix, qr)
+    add_fixed_patterns(qr_matrix)
+
 
 
 def fill_qr(qr):
@@ -167,11 +267,9 @@ def fill_qr(qr):
 
 
 def make_qr(text0, text1, text2):
-    qr0 = QR(text0)
-    qr1 = QR(text1)
-    qr2 = QR(text2)
+    qr0, qr1, qr2 = QR(text0), QR(text1), QR(text2)
     largest_val = max(qr0.data_len, qr1.data_len, qr2.data_len)
     level = get_capacity_value(largest_val)
-    qr0.set_level(level)
-    qr1.set_level(level)
-    qr2.set_level(level)
+    qr0.set_level_and_fill(level)
+    qr1.set_level_and_fill(level)
+    qr2.set_level_and_fill(level)
