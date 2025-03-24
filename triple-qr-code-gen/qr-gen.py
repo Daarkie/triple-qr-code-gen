@@ -1,3 +1,5 @@
+from itertools import count
+
 from docutils.utils.roman import OutOfRangeError
 from reedsolo import RSCodec
 
@@ -217,45 +219,194 @@ def mask_fixed_patterns(matrix):
         for j in range(4, 13):
             matrix[i][j] = 1
             if j < 12:
-                matrix[size - j][i] = 1
-                matrix[i][size - j] = 1
+                matrix[size - j][i] = 2
+                matrix[i][size - j] = 2
 
     # timing patterns
     for i in range(12, size - 12):
-        matrix[10][i] = 1
-        matrix[i][10] = 1
+        matrix[10][i] = 2
+        matrix[i][10] = 2
 
     # alignment pattern
     for i in range(size - 13, size - 8):
         for j in range(size - 13, size - 8):
-            matrix[i][j] = 1
+            matrix[i][j] = 2
 
 
-def add_fixed_patterns(matrix):
+def add_fixed_patterns(matrix , mask_num):
     add_finder_patterns(matrix)
     add_alignment_patterns(matrix)
     add_timing_patterns(matrix)
     # Dark module is always present at position (4*version + 9, 8)
 
 
+
+def input_data_in_matrix(matrix, data, x, is_upwards):
+    size = len(matrix)
+
+    if is_upwards:
+        start = size - 5
+        end = 3
+    else:
+        start = 4
+        end = size - 4
+    # check each row
+    for y in range(start, end):
+        for offset in [0, 1]:
+            if len(data) == 0:
+                break
+            if matrix[x - offset][y] == 0:
+                matrix[x - offset][y] = data.pop(0)
+
+
 def add_data_patterns(matrix, qr):
     size = len(matrix)
     data = qr.encoded
 
-    y = size - 5
-    direction_up = True
-
+    # go through the pairs or cols
     for x in range(size - 5, 3, -2):
-        if x <= 10:
+        if x == 10:
             pass
-        if direction_up:
-            start = size - 5
-            end = 3
+        elif x > 10:
+            input_data_in_matrix(matrix, data, x, x % 4 == 0)
         else:
-            start = 4
-            end = size - 4
-        for y in range(start, end):
-            pass
+            input_data_in_matrix(matrix, data, x + 1, x % 4 == 2)
+
+
+def should_mask(x, y, mask_num):
+    if mask_num == 0:
+        return (x + y) % 2 == 0
+    elif mask_num == 1:
+        return y % 2 == 0
+    elif mask_num == 2:
+        return y % 3 == 0
+    elif mask_num == 3:
+        return (x + y) % 3 == 0
+    elif mask_num == 4:
+        return (x / 3 + y / 2) % 2 == 0
+    elif mask_num == 5:
+        return (x * y) % 2 + (x * y) % 3 == 0
+    elif mask_num == 6:
+        return ((x * y) % 2 + (x * y) % 3) % 2 == 0
+    elif mask_num == 7:
+        return ((x + y) % 2 + (x * y) % 3) % 2 == 0
+
+
+def apply_mask(matrix, mask_num):
+    size = len(matrix)
+    masked = matrix
+
+    for x in range(4, size - 4):
+        for y in range(4, size - 4):
+            if should_mask(y, x, mask_num):
+                masked[x][y] = 1 - masked[x][y]
+
+    return masked
+
+
+def rule1_penalty(masked, size):
+    penalty = 0
+    # Horizontal check
+    for row in range(4, size - 4):
+        run = 0
+        current = masked[row][4]
+        for col in range(4, size - 4):
+            if masked[row][col] == current:
+                run += 1
+            else:
+                current = masked[row][col]
+                run = 1
+            if run == 5 and current < 2:
+                penalty += 3
+            elif run > 5 and current < 2:
+                penalty += 1
+
+    # Vertical check
+    for col in range(4, size - 4):
+        run = 0
+        current = masked[0][col]
+        for row in range(4, size - 4):
+            if masked[row][col] == current:
+                run += 1
+            else:
+                current = masked[row][col]
+                run = 1
+            if run == 5 and current < 2:
+                penalty += 3
+            elif run > 5 and current < 2:
+                penalty += 1
+
+    return penalty
+
+
+def rule2_penalty(masked, size):
+    penalty = 0
+    for x in range(4, size - 5):
+        for y in range(4, size - 5):
+            if (masked[y][x] == masked[y][x + 1] and masked[y][x] == masked[y + 1][x] and masked[y][x] == masked[y + 1][
+                x + 1]) and masked[y][x] < 2:
+                penalty += 3
+    return penalty
+
+
+def rule3_penalty(masked, size):
+    penalty = 0
+    pattern = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0]
+    for x in range(4, size - 5):
+        for y in range(4, size - 5 - len(pattern)):
+            window = masked[x][y : y + len(pattern)]
+            if window == pattern or window == [not i for i in pattern]:
+                penalty += 40
+
+    for y in range(4, size - 5):
+        for x in range(4, size - 5 - len(pattern)):
+            window = masked[x : x + len(pattern)][y]
+            if window == pattern or window == [not i for i in pattern]:
+                penalty += 40
+    return penalty
+
+
+def rule4_penalty(masked, size):
+    dark = sum(row.count(1) for row in masked)
+    total = (size - 8) ** 2
+    ratio = (dark / total) * 100
+    nearest_multiple = 5 * round(ratio / 5)
+    penalty = int(10 * abs(nearest_multiple - 50) / 5)
+    return penalty
+
+
+def calculate_penalty(masked):
+    size = len(masked)
+    penalty = 0
+
+    # rule 1: adjacent same color modules in row/column
+    penalty += rule1_penalty(masked, size)
+
+    # rule 2: 2x2 blocks of same color
+    penalty += rule2_penalty(masked, size)
+
+    # rule 3: finder-like patterns
+    penalty += rule3_penalty(masked, size)
+
+    # rule 4: dark/light module balance
+    penalty += rule4_penalty(masked, size)
+
+    return penalty
+
+
+def add_masking_pattern(matrix):
+    min_score = float('inf')
+    best_mask = 0
+
+    for mask_num in range(8):
+        masked = apply_mask(matrix, mask_num)
+        score = calculate_penalty(masked)
+
+        if score < min_score:
+            min_score = score
+            best_mask = mask_num
+
+    return best_mask
 
 
 def make_2d_array(qr):
@@ -264,7 +415,8 @@ def make_2d_array(qr):
     qr_matrix = [[0 for j in range(modules)] for i in range(modules)]
     mask_fixed_patterns(qr_matrix)
     add_data_patterns(qr_matrix, qr)
-    add_fixed_patterns(qr_matrix)
+    mask_num = add_masking_pattern(qr_matrix)
+    add_fixed_patterns(qr_matrix, mask_num)
 
 
 def fill_qr(qr):
