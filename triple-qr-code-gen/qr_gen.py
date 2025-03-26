@@ -24,7 +24,7 @@ def get_capacity_value(data_size, level=0):
         6: {'L': 195, 'M': 154, 'Q': 108, 'H': 84}
     }
     if level == 0:
-        for i in range(2, 10):
+        for i in range(2, 7):
             if capacity_table[i]['L'] >= data_size:
                 return i
         raise ValueError(f"Size of data '{data_size}' not supported")
@@ -45,10 +45,10 @@ def make_2d_array(qr):
         # finder patterns + format info
         for i in range(4, 13):
             for j in range(4, 13):
-                matrix[i][j] = 1
+                matrix[i][j] = 2
                 if j < 12:
-                    matrix[size - j][i] = 2
-                    matrix[i][size - j] = 2
+                    matrix[size - j - 1][i] = 2
+                    matrix[i][size - j - 1] = 2
 
         # timing patterns
         for i in range(12, size - 12):
@@ -85,12 +85,11 @@ def make_2d_array(qr):
         for col in range(4, size - 4):
             for row in range(4, size - 4):
                 if should_mask(col, row):
-                    masked_matrix[col][row] = 1 - masked_matrix[col][row]
+                    masked_matrix[col][row] = 1 - int(masked_matrix[col][row])
 
         return masked_matrix
 
     def choose_masking_pattern(matrix):
-
         def calculate_penalty():
             size = len(masked)
 
@@ -126,6 +125,7 @@ def make_2d_array(qr):
                             penalty += 3
                         elif run > 5 and current < 2:
                             penalty += 1
+                return penalty
 
             # rule 2: 2x2 blocks of same color
             def rule2_penalty():
@@ -144,14 +144,11 @@ def make_2d_array(qr):
                 pattern = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0]
                 for x in range(4, size - 5):
                     for y in range(4, size - 5 - len(pattern)):
-                        window = masked[x][y: y + len(pattern)]
-                        if window == pattern or window == [not i for i in pattern]:
+                        window0 = masked[x][y: y + len(pattern)]
+                        window1 = [row[x] for row in masked[y: y + len(pattern)]]
+                        if window0 == pattern or window0 == [not i for i in pattern]:
                             penalty += 40
-
-                for y in range(4, size - 5):
-                    for x in range(4, size - 5 - len(pattern)):
-                        window = masked[x: x + len(pattern)][y]
-                        if window == pattern or window == [not i for i in pattern]:
+                        if window1 == pattern or window1 == [not i for i in pattern]:
                             penalty += 40
                 return penalty
 
@@ -186,7 +183,7 @@ def make_2d_array(qr):
 
             if score < min_score:
                 min_score = score
-                best_mask = mask_num
+                best_mask = m
 
         return best_mask
 
@@ -251,23 +248,27 @@ def make_2d_array(qr):
 
                 # BCH Error Correction (XOR with 101010000010010)
                 generator = 0b101010000010010
-                format_num = int(format_bits, 2) << 10  # Append 10 zero bits for BCH
+                format_num = int(format_bits, 2) << 10  # append 10 zero bits for BCH
 
-                for i in range(14, 4, -1):  # Apply BCH encoding
-                    if (format_num >> i) & 1:
-                        format_num ^= generator << (i - 10)
+                for z in range(14, 9, -1):  # apply BCH encoding
+                    if (format_num >> z) & 1:
+                        format_num ^= generator << (z - 10)
 
                 # final 15-bit format string
                 return format_bits + format(format_num, '010b')
 
-            format_info = get_format_information()
-            for i in range(0, 9):
-                if i != 6:
-                    matrix[12][i] = matrix[size - 4 - i][12] = format_info.pop(0)
+            format_info = list(get_format_information())
+            for i in range(4, 13):
+                if i < 10:
+                    matrix[12][i] = matrix[size - i][12] = 0 if format_info.pop(0) == "0" else 1
+                else:
+                    matrix[12][i + 1] = matrix[size - i][12] = 0 if format_info.pop(0) == "0" else 1
 
-            for i in range(0, 8):
-                if i != 6:
-                    matrix[i][12] = matrix[12][size - 4 - i] = format_info.pop(0)
+            for i in range(4, 12):
+                if i < 10:
+                    matrix[i][12] = matrix[12][size - i] = 0 if format_info.pop(0) == "0" else 1
+                else:
+                    matrix[i + 1][12] = matrix[12][size - i] = 0 if format_info.pop(0) == "0" else 1
 
             matrix[12][size - 12] = 1
 
@@ -275,8 +276,9 @@ def make_2d_array(qr):
         add_alignment_patterns()
         add_timing_patterns()
         place_format_information()
+        print(matrix)
 
-    def add_data_patterns(matrix, qr):
+    def add_data_patterns(matrix):
         size = len(matrix)
 
         def input_data_in_matrix(x, is_upwards):
@@ -292,25 +294,20 @@ def make_2d_array(qr):
                     if len(data) == 0:
                         break
                     if matrix[x - offset][y] == 0:
-                        matrix[x - offset][y] = data.pop(0)
+                        matrix[x - offset][y] = 0 if data.pop(0) == "0" else 1
 
         size = len(matrix)
-        data = qr.encoded
+        data = list(qr.encoded)
 
         # go through the pairs or cols
         for col in range(size - 5, 3, -2):
-            if col == 10:
-                pass
-            elif col > 10:
-                input_data_in_matrix(col, col % 4 == 0)
-            else:
-                input_data_in_matrix(col + 1, col % 4 == 2)
+            input_data_in_matrix(col, col % 4 == 0)
 
     # number of modules + padding
     modules = qr.level * 4 + 17 + 4 * 2
     qr_matrix = [[0 for j in range(modules)] for i in range(modules)]
     mask_fixed_patterns(qr_matrix)
-    add_data_patterns(qr_matrix, qr)
+    add_data_patterns(qr_matrix)
     mask_num = choose_masking_pattern(qr_matrix)
     qr_matrix = apply_mask(qr_matrix, mask_num)
     add_fixed_patterns(qr_matrix, qr.ec)
@@ -425,7 +422,7 @@ def fill_qr(qr):
             # Convert each byte to 8 bits
             for bit_position in range(7, -1, -1):
                 bit = (codeword >> bit_position) & 1
-                qr.encoded.append(bit)
+                qr.encoded += str(bit)
 
     qr.ec = get_capacity_value(qr.data_len, qr.level)
     encode_alphanumeric_to_qr_binary()
@@ -433,4 +430,4 @@ def fill_qr(qr):
     make_codewords()
 
     # add reminder bits for v2 - v6
-    qr.encoded.append('0000000')
+    qr.encoded += "0000000"
