@@ -52,7 +52,7 @@ class TQRCodeGenApp(App):
         # access text inputs
         input_texts = [text_input.text for text_input in self.text_ins]
         # change image / make TQR
-        if all(len(text) >= 1 for text in input_texts):  # Check minimum length requirement
+        if all(len(text) >= 1 for text in input_texts):  # check minimum length requirement
             self.clickable_image.texture = create_tqr_image(input_texts[0], input_texts[1], input_texts[2])
             self.clickable_image.fit_mode = "fill"
         else:

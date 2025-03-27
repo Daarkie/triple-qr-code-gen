@@ -194,7 +194,9 @@ def make_2d_array(qr):
             # top-left finder pattern
             for i in range(4, 12):
                 for j in range(4, 12):
-                    if (i == 4 or i == 10 or j == 4 or j == 10 or
+                    if i == 11 or j == 11:
+                        matrix[i][j] = 0
+                    elif (i == 4 or i == 10 or j == 4 or j == 10 or
                             (6 <= i <= 8 and 6 <= j <= 8)):
                         matrix[i][j] = 1
                     else:
@@ -203,7 +205,9 @@ def make_2d_array(qr):
             # top-right finder pattern
             for i in range(4, 12):
                 for j in range(size - 12, size - 4):
-                    if (i == 4 or i == 10 or j == size - 11 or j == size - 5 or
+                    if i == 11 or j == size - 12:
+                        matrix[i][j] = 0
+                    elif (i == 4 or i == 10 or j == size - 11 or j == size - 5 or
                             (6 <= i <= 8 and size - 9 <= j <= size - 7)):
                         matrix[i][j] = 1
                     else:
@@ -212,7 +216,9 @@ def make_2d_array(qr):
             # bottom-left finder pattern
             for i in range(size - 12, size - 4):
                 for j in range(4, 12):
-                    if (i == size - 11 or i == size - 5 or j == 4 or j == 10 or
+                    if i == size - 12 or j == 11:
+                        matrix[i][j] = 0
+                    elif (i == size - 11 or i == size - 5 or j == 4 or j == 10 or
                             (size - 9 <= i <= size - 7 and 6 <= j <= 8)):
                         matrix[i][j] = 1
                     else:
