@@ -266,9 +266,9 @@ def make_2d_array(qr):
             format_info = list(get_format_information())
             for i in range(4, 13):
                 if i < 10:
-                    matrix[12][i] = matrix[size - i][12] = 0 if format_info.pop(0) == "0" else 1
+                    matrix[12][i] = matrix[size - i - 1][12] = 0 if format_info.pop(0) == "0" else 1
                 else:
-                    matrix[12][i + 1] = matrix[size - i][12] = 0 if format_info.pop(0) == "0" else 1
+                    matrix[12][i + 1] = matrix[size - i - 1][12] = 0 if format_info.pop(0) == "0" else 1
 
             for i in range(4, 12):
                 if i < 10:
