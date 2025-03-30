@@ -272,11 +272,11 @@ def make_2d_array(qr):
 
             for i in range(4, 12):
                 if i < 10:
-                    matrix[i][12] = matrix[12][size - i] = 0 if format_info.pop(0) == "0" else 1
+                    matrix[i][12] = matrix[12][size - i - 1] = 0 if format_info.pop(0) == "0" else 1
                 else:
-                    matrix[i + 1][12] = matrix[12][size - i] = 0 if format_info.pop(0) == "0" else 1
+                    matrix[i + 1][12] = matrix[12][size - i - 1] = 0 if format_info.pop(0) == "0" else 1
 
-            matrix[12][size - 12] = 1
+            matrix[12][size - 13] = 1
 
         add_finder_patterns()
         add_alignment_patterns()
