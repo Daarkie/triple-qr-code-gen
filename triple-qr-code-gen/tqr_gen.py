@@ -26,4 +26,4 @@ def make_tqr(text0, text1, text2):
         qr_matrix1 = QrCode.encode_segments(QrSegment.make_segments(text_list[1]), error_correction[level],
                                                       minversion=version0)
         version1 = qr_matrix1.get_version()
-    return combine_qrs(qr_matrix0, qr_matrix1, qr_matrix2)
+    return combine_qrs(np.array(qr_matrix0), np.array(qr_matrix1), np.array(qr_matrix2))
